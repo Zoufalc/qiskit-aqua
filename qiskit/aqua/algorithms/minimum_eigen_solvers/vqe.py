@@ -75,6 +75,15 @@ class VQE(VQAlgorithm, MinimumEigensolver):
     If the variational form provides ``None`` as the lower bound, then VQE
     will default it to :math:`-2\pi`; similarly, if the variational form returns ``None``
     as the upper bound, the default value will be :math:`2\pi`.
+
+    .. note::
+
+        The VQE stores the parameters of ``var_form`` sorted by name to map the values
+        provided by the optimizer to the circuit. This is done to ensure reproducible results,
+        for example such that running the optimization twice with same random seeds yields the
+        same result. Also, the ``optimal_point`` of the result object can be used as initial
+        point of another VQE run by passing it as ``initial_point`` to the initializer.
+
     """
 
     def __init__(self,
@@ -118,8 +127,7 @@ class VQE(VQAlgorithm, MinimumEigensolver):
         """
         validate_min('max_evals_grouped', max_evals_grouped, 1)
         if var_form is None:
-            if operator is not None:
-                var_form = RealAmplitudes()
+            var_form = RealAmplitudes()
 
         if optimizer is None:
             optimizer = SLSQP()
@@ -206,7 +214,7 @@ class VQE(VQAlgorithm, MinimumEigensolver):
                       aux_operators: Optional[List[Optional[Union[OperatorBase,
                                                                   LegacyBaseOperator]]]]) -> None:
         """ Set aux operators """
-        # This is all terrible code to deal with weight 0-qubit None aux_ops.
+        # We need to handle the array entries being Optional i.e. having value None
         self._aux_op_nones = None
         if isinstance(aux_operators, list):
             self._aux_op_nones = [op is None for op in aux_operators]
@@ -226,7 +234,7 @@ class VQE(VQAlgorithm, MinimumEigensolver):
                 # try to set the number of qubits on the variational form, if possible
                 try:
                     self.var_form.num_qubits = self.operator.num_qubits
-                    self._var_form_params = list(self.var_form.parameters)
+                    self._var_form_params = sorted(self.var_form.parameters, key=lambda p: p.name)
                 except AttributeError:
                     raise AquaError("The number of qubits of the variational form does not match "
                                     "the operator, and the variational form does not allow setting "
@@ -235,7 +243,7 @@ class VQE(VQAlgorithm, MinimumEigensolver):
     @VQAlgorithm.optimizer.setter
     def optimizer(self, optimizer: Optimizer):
         """ Sets optimizer """
-        super().optimizer = optimizer
+        super(VQE, self.__class__).optimizer.__set__(self, optimizer)
         if optimizer is not None:
             optimizer.set_max_evals_grouped(self._max_evals_grouped)
 
@@ -356,14 +364,14 @@ class VQE(VQAlgorithm, MinimumEigensolver):
                     self._eval_time, self._ret['opt_params'], self._eval_count)
         self._ret['eval_count'] = self._eval_count
 
-        self._ret['energy'] = self.get_optimal_cost()
-        self._ret['eigvals'] = np.asarray([self._ret['energy']])
-        self._ret['eigvecs'] = np.asarray([self.get_optimal_vector()])
-
         result = VQEResult()
         result.combine(vqresult)
         result.eigenvalue = vqresult.optimal_value + 0j
         result.eigenstate = self.get_optimal_vector()
+
+        self._ret['energy'] = self.get_optimal_cost()
+        self._ret['eigvals'] = np.asarray([self._ret['energy']])
+        self._ret['eigvecs'] = np.asarray([result.eigenstate])
 
         if self.aux_operators:
             self._eval_aux_ops()

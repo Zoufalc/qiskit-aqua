@@ -126,7 +126,8 @@ class QSVM(QuantumAlgorithm):
             # patch the feature dimension attribute to the circuit
             self.feature_map.feature_dimension = len(feature_map.parameters)
             if not hasattr(feature_map, 'ordered_parameters'):
-                self.feature_map.ordered_parameters = list(feature_map.parameters)
+                self.feature_map.ordered_parameters = sorted(feature_map.parameters,
+                                                             key=lambda p: p.name)
             self.feature_map_params_x = ParameterVector('x', self.feature_map.feature_dimension)
             self.feature_map_params_y = ParameterVector('y', self.feature_map.feature_dimension)
         else:
@@ -275,7 +276,7 @@ class QSVM(QuantumAlgorithm):
                     (feature_map_params, feature_map_params), feature_map, measurement,
                     is_statevector_sim=is_statevector_sim)
                 parameterized_circuit = quantum_instance.transpile(parameterized_circuit)[0]
-                circuits = [parameterized_circuit.bind_parameters({feature_map_params: x})
+                circuits = [parameterized_circuit.assign_parameters({feature_map_params: x})
                             for x in to_be_computed_data]
             else:
                 #  the second x is redundant
@@ -327,8 +328,8 @@ class QSVM(QuantumAlgorithm):
                         (feature_map_params_x, feature_map_params_y), feature_map, measurement,
                         is_statevector_sim=is_statevector_sim)
                     parameterized_circuit = quantum_instance.transpile(parameterized_circuit)[0]
-                    circuits = [parameterized_circuit.bind_parameters({feature_map_params_x: x,
-                                                                       feature_map_params_y: y})
+                    circuits = [parameterized_circuit.assign_parameters({feature_map_params_x: x,
+                                                                         feature_map_params_y: y})
                                 for x, y in to_be_computed_data_pair]
                 else:
                     if logger.isEnabledFor(logging.DEBUG):

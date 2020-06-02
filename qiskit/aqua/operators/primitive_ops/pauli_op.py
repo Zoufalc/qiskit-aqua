@@ -209,15 +209,18 @@ class PauliOp(PrimitiveOp):
             return PauliOp(self.primitive)
         if np.sum(sig_qubits) == 1:
             sig_qubit_index = sig_qubits.tolist().index(True)
+            coeff = np.real(self.coeff) \
+                if not isinstance(self.coeff, ParameterExpression) \
+                else self.coeff
             # Y rotation
             if corrected_x[sig_qubit_index] and corrected_z[sig_qubit_index]:
-                rot_op = PrimitiveOp(RYGate(self.coeff))
+                rot_op = PrimitiveOp(RYGate(coeff))
             # Z rotation
             elif corrected_z[sig_qubit_index]:
-                rot_op = PrimitiveOp(RZGate(self.coeff))
+                rot_op = PrimitiveOp(RZGate(coeff))
             # X rotation
             elif corrected_x[sig_qubit_index]:
-                rot_op = PrimitiveOp(RXGate(self.coeff))
+                rot_op = PrimitiveOp(RXGate(coeff))
 
             from ..operator_globals import I
             left_pad = I.tensorpower(sig_qubit_index)
@@ -245,8 +248,8 @@ class PauliOp(PrimitiveOp):
         if not isinstance(other_op, PauliOp):
             return False
         # Don't use compose because parameters will break this
-        self_bits = self.primitive.z.astype(int) + 2 * self.primitive.x.astype(int)
-        other_bits = other_op.primitive.z.astype(int) + 2 * other_op.primitive.x.astype(int)
+        self_bits = self.primitive.z + 2 * self.primitive.x
+        other_bits = other_op.primitive.z + 2 * other_op.primitive.x
         return all((self_bits * other_bits) * (self_bits - other_bits) == 0)
 
     def to_circuit(self) -> QuantumCircuit:

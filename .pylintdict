@@ -4,6 +4,7 @@ abstractmethod
 adag
 adam
 adjoints
+ADMMState
 ae
 aer
 Aer's
@@ -42,6 +43,7 @@ babbush
 backend
 backends
 barenco
+Baritompa
 barkoutsos
 basebackend
 baseoperator
@@ -347,6 +349,7 @@ lhs
 lih
 lijh
 lin
+LinearConstraint
 LinearConstraintInterface
 linearpaulirotations
 ljik
@@ -425,6 +428,7 @@ negoro
 nelder
 nelec
 neq
+networkx
 nevals
 newtons's
 nfev
@@ -462,7 +466,6 @@ oplist
 oplist's
 oplus
 optim
-QuadraticProgram
 optimizer's
 optimizers
 opv
@@ -539,7 +542,9 @@ qp
 qpe
 qreg
 qrs
+QuadraticConstraint
 QuadraticConstraintInterface
+QuadraticProgram
 quandl
 quantized
 quantumcircuit
