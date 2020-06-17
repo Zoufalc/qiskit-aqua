@@ -17,7 +17,7 @@
 See https://arxiv.org/abs/1304.3061
 """
 
-from typing import Optional, List, Callable, Union, Dict
+from typing import Optional, List, Callable, Union, Dict, Any
 import logging
 import warnings
 from time import time
@@ -92,6 +92,7 @@ class VQE(VQAlgorithm, MinimumEigensolver):
                  optimizer: Optional[Optimizer] = None,
                  initial_point: Optional[np.ndarray] = None,
                  expectation: Optional[ExpectationBase] = None,
+                 include_custom: bool = False,
                  max_evals_grouped: int = 1,
                  aux_operators: Optional[List[Optional[Union[OperatorBase,
                                                              LegacyBaseOperator]]]] = None,
@@ -107,7 +108,17 @@ class VQE(VQAlgorithm, MinimumEigensolver):
                 for the optimizer. If ``None`` then VQE will look to the variational form for a
                 preferred point and if not will simply compute a random one.
             expectation: The Expectation converter for taking the average value of the
-                Observable over the var_form state function.
+                Observable over the var_form state function. When ``None`` (the default) an
+                :class:`~qiskit.aqua.operators.expectations.ExpectationFactory` is used to select
+                an appropriate expectation based on the operator and backend. When using Aer
+                qasm_simulator backend, with paulis, it is however much faster to leverage custom
+                Aer function for the computation but, although VQE performs much faster
+                with it, the outcome is ideal, with no shot noise, like using a state vector
+                simulator. If you are just looking for the quickest performance when choosing Aer
+                qasm_simulator and the lack of shot noise is not an issue then set `include_custom`
+                parameter here to ``True`` (defaults to ``False``).
+            include_custom: When `expectation` parameter here is None setting this to ``True`` will
+                allow the factory to include the custom Aer pauli expectation.
             max_evals_grouped: Max number of evaluations performed simultaneously. Signals the
                 given optimizer that more than one set of parameters can be supplied so that
                 potentially the expectation values can be computed in parallel. Typically this is
@@ -137,8 +148,9 @@ class VQE(VQAlgorithm, MinimumEigensolver):
             initial_point = var_form.preferred_init_points
 
         self._max_evals_grouped = max_evals_grouped
-        self._circuit_sampler = None
+        self._circuit_sampler = None  # type: Optional[CircuitSampler]
         self._expectation = expectation
+        self._include_custom = include_custom
         self._expect_op = None
         self._operator = None
 
@@ -147,7 +159,7 @@ class VQE(VQAlgorithm, MinimumEigensolver):
                          cost_fn=self._energy_evaluation,
                          initial_point=initial_point,
                          quantum_instance=quantum_instance)
-        self._ret = None
+        self._ret = None  # type: Dict[str, Any]
         self._eval_time = None
         self._optimizer.set_max_evals_grouped(max_evals_grouped)
         self._callback = callback
@@ -178,7 +190,8 @@ class VQE(VQAlgorithm, MinimumEigensolver):
     def _try_set_expectation_value_from_factory(self):
         if self.operator and self.quantum_instance:
             self.expectation = ExpectationFactory.build(operator=self.operator,
-                                                        backend=self.quantum_instance)
+                                                        backend=self.quantum_instance,
+                                                        include_custom=self._include_custom)
 
     @QuantumAlgorithm.quantum_instance.setter
     def quantum_instance(self, quantum_instance: Union[QuantumInstance, BaseBackend]) -> None:
@@ -240,10 +253,10 @@ class VQE(VQAlgorithm, MinimumEigensolver):
                                     "the operator, and the variational form does not allow setting "
                                     "the number of qubits using `num_qubits`.")
 
-    @VQAlgorithm.optimizer.setter
+    @VQAlgorithm.optimizer.setter  # type: ignore
     def optimizer(self, optimizer: Optimizer):
         """ Sets optimizer """
-        super(VQE, self.__class__).optimizer.__set__(self, optimizer)
+        super(VQE, self.__class__).optimizer.__set__(self, optimizer)  # type: ignore
         if optimizer is not None:
             optimizer.set_max_evals_grouped(self._max_evals_grouped)
 
@@ -310,7 +323,7 @@ class VQE(VQAlgorithm, MinimumEigensolver):
         self._check_operator_varform()
 
         if isinstance(self.var_form, QuantumCircuit):
-            param_dict = dict(zip(self._var_form_params, parameter))
+            param_dict = dict(zip(self._var_form_params, parameter))  # type: Dict
             wave_function = self.var_form.assign_parameters(param_dict)
         else:
             wave_function = self.var_form.construct_circuit(parameter)
@@ -431,7 +444,8 @@ class VQE(VQAlgorithm, MinimumEigensolver):
 
         parameter_sets = np.reshape(parameters, (-1, num_parameters))
         # Create dict associating each parameter with the lists of parameterization values for it
-        param_bindings = dict(zip(self._var_form_params, parameter_sets.transpose().tolist()))
+        param_bindings = dict(zip(self._var_form_params,
+                                  parameter_sets.transpose().tolist()))  # type: Dict
 
         start_time = time()
         sampled_expect_op = self._circuit_sampler.convert(self._expect_op, params=param_bindings)
