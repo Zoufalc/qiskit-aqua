@@ -91,3 +91,8 @@ class VarQTE(TimeEvolution):
                                                       num_time_steps * np.real(nat_grad_result)))
 
         return self._state.assign_parameters(dict(zip(parameters, self._parameter_values)))
+
+    def error_bound(self):
+        #TODO check if this is equivalent for real and imaginary
+
+        return
